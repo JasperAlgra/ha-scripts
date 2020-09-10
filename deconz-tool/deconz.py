@@ -45,10 +45,11 @@ OPERATIONS = [OPERATION_CONFIG, OPERATION_LIST, OPERATION_OUTPUT, OPERATION_RENA
 
 OPERATION_OUTPUT_TYPE = ["raw", "json"]
 OPERATION_RENAME_TYPE = ["raw"]
+OPERATION_LIST_SORT_KEYS = [DECONZ_ATTR_NAME, DECONZ_ATTR_LASTUPDATED, DECONZ_ATTR_TYPE, DECONZ_ATTR_ID, DECONZ_ATTR_MODEL, DECONZ_ATTR_REACHABLE]
 
 HELP = """
 Commands:
-  list           - list all devices
+  list [sortKey] - list all devices [optional sortable keys: "name", "lastupdated", "type", "id", "model", "reachable"]
   rename         - rename device
   config         - configure device
   output raw     - print devices in python format
@@ -60,11 +61,12 @@ logging.basicConfig(
     level=logging.ERROR, format="%(asctime)s %(levelname)s: %(message)s"
 )
 LOGGER = logging.getLogger(__name__)
+
+
 # LOGGER.propagate = False
 
 #################################################################
 def parseArg(args):
-
     if len(sys.argv) == 1:
         print("INFO: No parameter supplied")
         print(HELP)
@@ -77,6 +79,15 @@ def parseArg(args):
         print("ERROR: Invalid operation")
         print(HELP)
         sys.exit(1)
+
+    if args[ARG_OPERATION] == OPERATION_LIST:
+        args[ARG_OPTION1] = 'type'
+        if len(sys.argv) > 2:
+            args[ARG_OPTION1] = sys.argv[2].lower()
+            if args[ARG_OPTION1] not in OPERATION_LIST_SORT_KEYS:
+                print("ERROR: Invalid sort option")
+                print(HELP)
+                sys.exit(1)
 
     if args[ARG_OPERATION] == OPERATION_OUTPUT:
         if len(sys.argv) < 3:
@@ -103,7 +114,6 @@ def parseArg(args):
 
 #################################################################
 def readConfig():
-
     config = None
 
     location = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -123,8 +133,12 @@ def readConfig():
 
 
 #################################################################
-def commandList(devices):
 
+def sortByKey(item, key):
+    return item.key(key)
+
+
+def commandList(devices, sortBy):
     """
     model
     reachable
@@ -137,25 +151,27 @@ def commandList(devices):
     print(hdr)
     print("".rjust(len(hdr), "-"))
 
-    for type in DECONZ_TYPE_USEABLE:
-        for dev in devices:
-            if dev[DECONZ_ATTR_TYPE] == type:
-                # Concat values
-                values = []
-                if DECONZ_ATTR_ON in dev:
-                    values.append("On" if dev[DECONZ_ATTR_ON] == True else "Off")
-                for sensor in dev[DECONZ_SENSORS]:
-                    for key, value in sensor[DECONZ_ATTR_VALUES].items():
-                        values.append(value)
+    if sortBy:
+        devices.sort(key=lambda e: e.get(sortBy), reverse=False)
+        # devices = sorted(devices, key=lambda e: e.get(sortBy))
 
-                print(
-                    f'{type:7} {dev[DECONZ_ATTR_MODEL][:40]:40} {dev[DECONZ_ATTR_NAME][:30]:30} {", ".join(dev[DECONZ_ATTR_ADDRESS]):20} {str(dev[DECONZ_ATTR_REACHABLE])[:5]:5} {str(dev[DECONZ_ATTR_LASTUPDATED])[:19]:19} {", ".join(values)}'
-                )
+    for dev in devices:
+        if dev[DECONZ_ATTR_TYPE] in DECONZ_TYPE_USEABLE:
+            # Concat values
+            values = []
+            if DECONZ_ATTR_ON in dev:
+                values.append("On" if dev[DECONZ_ATTR_ON] == True else "Off")
+            for sensor in dev[DECONZ_SENSORS]:
+                for key, value in sensor[DECONZ_ATTR_VALUES].items():
+                    values.append(value)
+
+            print(
+                f'{dev[DECONZ_ATTR_TYPE]:7} {dev[DECONZ_ATTR_MODEL][:40]:40} {dev[DECONZ_ATTR_NAME][:30]:30} {", ".join(dev[DECONZ_ATTR_ADDRESS]):20} {str(dev[DECONZ_ATTR_REACHABLE])[:5]:5} {str(dev[DECONZ_ATTR_LASTUPDATED])[:19]:19} {", ".join(values)}'
+            )
 
 
 #################################################################
 def commandOutput(type, devices):
-
     # 0=raw, 1=json
     if type == OPERATION_OUTPUT_TYPE[0]:
         # print raw python object, it isn't json format
@@ -446,7 +462,6 @@ def commandConfig(api, devices):
 
 #################################################################
 def Main():
-
     configInfo = readConfig()
 
     args = {}
@@ -466,7 +481,7 @@ def Main():
         print("ERROR: DeCONZ API returned None?")
 
     if args[ARG_OPERATION] == OPERATION_LIST:
-        commandList(devices)
+        commandList(devices, args[ARG_OPTION1])
 
     if args[ARG_OPERATION] == OPERATION_OUTPUT:
         commandOutput(args[ARG_OPTION1], devices)
@@ -495,6 +510,7 @@ def Main():
             sys.exit(1)
 
     deconzapi.DECONZ_TYPE_USEABLE
+    
     make modify user-input, it isn't something we use regularly?
     https://www.w3schools.com/python/ref_func_input.asp
     """
