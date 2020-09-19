@@ -45,11 +45,12 @@ OPERATIONS = [OPERATION_CONFIG, OPERATION_LIST, OPERATION_OUTPUT, OPERATION_RENA
 
 OPERATION_OUTPUT_TYPE = ["raw", "json"]
 OPERATION_RENAME_TYPE = ["raw"]
-OPERATION_LIST_SORT_KEYS = [DECONZ_ATTR_NAME, DECONZ_ATTR_LASTUPDATED, DECONZ_ATTR_TYPE, DECONZ_ATTR_ID, DECONZ_ATTR_MODEL, DECONZ_ATTR_REACHABLE]
+OPERATION_LIST_SORT_KEYS = [DECONZ_ATTR_NAME, DECONZ_ATTR_LASTUPDATED, DECONZ_ATTR_TYPE, DECONZ_ATTR_ID,
+                            DECONZ_ATTR_MODEL, DECONZ_ATTR_REACHABLE]
 
 HELP = """
 Commands:
-  list [sortKey] - list all devices [optional sortable keys: "name", "lastupdated", "type", "id", "model", "reachable"]
+  list [sortKey] - list all devices [optional sortable keys: "name", "lastupdated", "type" , "id", "model", "reachable"]
   rename         - rename device
   config         - configure device
   output raw     - print devices in python format
@@ -133,11 +134,6 @@ def readConfig():
 
 
 #################################################################
-
-def sortByKey(item, key):
-    return item.key(key)
-
-
 def commandList(devices, sortBy):
     """
     model
@@ -147,13 +143,19 @@ def commandList(devices, sortBy):
     value(s)
     """
 
-    hdr = f'{"Type":7} {"Model":40} {"Name":30} {"Address":20} {"Reach":5} {"Last Updated (UTC)":19} {"Values":20}'
-    print(hdr)
-    print("".rjust(len(hdr), "-"))
+    count = 0
+    for dev in devices:
+        if dev[DECONZ_ATTR_TYPE] in DECONZ_TYPE_USEABLE:
+            count = count + 1
+    print("Found {} useable devices".format(count))
+
+    header = f'{"Type":7} {"Model":40} {"Name":30} {"Address":20} {"Reach":5} {"Firmware":10} {"Last Updated (UTC)":19} {"Values":20}'
+
+    print(header)
+    print("".rjust(len(header), "-"))
 
     if sortBy:
         devices.sort(key=lambda e: e.get(sortBy), reverse=False)
-        # devices = sorted(devices, key=lambda e: e.get(sortBy))
 
     for dev in devices:
         if dev[DECONZ_ATTR_TYPE] in DECONZ_TYPE_USEABLE:
@@ -165,8 +167,18 @@ def commandList(devices, sortBy):
                 for key, value in sensor[DECONZ_ATTR_VALUES].items():
                     values.append(value)
 
+            device_address = dev[DECONZ_ATTR_UNIQUEID]
+            device_address = device_address.replace(":", "")
+
             print(
-                f'{dev[DECONZ_ATTR_TYPE]:7} {dev[DECONZ_ATTR_MODEL][:40]:40} {dev[DECONZ_ATTR_NAME][:30]:30} {", ".join(dev[DECONZ_ATTR_ADDRESS]):20} {str(dev[DECONZ_ATTR_REACHABLE])[:5]:5} {str(dev[DECONZ_ATTR_LASTUPDATED])[:19]:19} {", ".join(values)}'
+                f'{dev[DECONZ_ATTR_TYPE]:7} '
+                f'{dev[DECONZ_ATTR_MODEL][:40]:40} '
+                f'{dev[DECONZ_ATTR_NAME][:30]:30} '
+                f'{device_address:20} '
+                f'{str(dev[DECONZ_ATTR_REACHABLE])[:5]:5} '
+                f'{str(dev[DECONZ_ATTR_SWVERSION])[:10]:10} '
+                f'{str(dev[DECONZ_ATTR_LASTUPDATED])[:19]:19} '
+                f'{", ".join(values)} '
             )
 
 
